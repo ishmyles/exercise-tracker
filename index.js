@@ -1,6 +1,7 @@
 const express = require('express')
 const bodyParser = require('body-parser')
 const mongoose = require("mongoose")
+const User = require('./models/user')
 const app = express()
 const cors = require('cors')
 require('dotenv').config()
@@ -25,7 +26,16 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
+app.get('/api/users', async (req, res) => {
+  const allUsers = await User.find({});
+  res.json(allUsers);
+});
 
+app.post('/api/users', async (req, res) => {
+  const newUser = new User({username: req.body.username});
+  const savedUser = await newUser.save();
+  res.json(savedUser);
+});
 
 
 
