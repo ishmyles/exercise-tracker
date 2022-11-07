@@ -114,12 +114,12 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
           log: [newExercise]
         });
         await newLog.save((err, logData) => {
-          if (err) console.log("Error saving new log: ", err);
+          if (err) return res.json({error: "Could not save new exercise"});
         });
       } else {
         existingLog.log.push(newExercise)
         await existingLog.save((err, logData) => {
-          if (err) console.log("Error saving new log: ", err);
+          if (err) return res.json({error: "Could not save new exercise"});
         })
       }
       res.json ({
@@ -131,6 +131,32 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
         });
     }
   })
+});
+
+app.get('/api/users/:_id/logs', async (req, res) => {
+  const uId = req.params._id;
+
+  if (Object.keys(req.query).length === 0) {
+    const userLog = await Log.findOne({userId: uId})
+      .populate('userId')
+      .populate('log');
+
+    if (!userLog) return res.json({error: "Enter a valid user id"});
+    const logs = userLog.log.map(exercise => ({
+      description: exercise.description,
+      duration: exercise.duration,
+      date: exercise.date
+    }))
+    const data = {
+      _id: userLog.userId._id,
+      username: userLog.userId.username,
+      count: logs.length,
+      log: logs,
+    }
+    return res.json(data);
+  } else {
+    // TODO
+  }
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
