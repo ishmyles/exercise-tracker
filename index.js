@@ -45,46 +45,6 @@ app.post('/api/users', async (req, res) => {
 });
 
 app.post('/api/users/:_id/exercises', async (req, res) => {
-  /*
-  ORIGINAL SOLUTION ADDING TO USER SCHEMA
-  console.log("POSTING EXERCISE DATA");
-  const userId = req.params._id;
-  const description = req.body.description;
-  const duration = req.body.duration;
-  const date = (req.body.date) ? new Date(req.body.date) : new Date()
-  const user = await User.findById(userId);
-  console.log(userId);
-  console.log(user);
-  console.log(description);
-  console.log(duration);
-  if (!user) return res.json({error: "Enter a valid user id"});
-  if (!description) return res.json({error: "Description is required"});
-  if (!duration) return res.json({error: "Duration is required"});
-
-  const exercise = new Exercise({
-    description: description,
-    duration: parseInt(duration),
-    date: date.toDateString()
-  });
-  await exercise.save(async (err, data) => {
-    console.log("SAVING!!!!!!");
-    if(err) {
-      console.log("Error Msg", err)
-    } else {
-      console.log("EXERCISE DATA: " + data)
-      user.log.push(data)
-      await user.save((err, userData) => {
-        console.log("USER DATA: " + userData)
-      if (!err) return res.send({
-        _id: userData._id,
-        username: userData.username,
-        description: userData.log[userData.log.length - 1].description,
-        duration: userData.log[userData.log.length - 1].duration,
-        date: userData.log[userData.log.length - 1].date
-      });
-    });
-    }
-  })*/
   const uId = req.params._id;
   const description = req.body.description;
   const duration = req.body.duration;
@@ -103,7 +63,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 
   await exercise.save(async (err, data) => {
     if(err) {
-      console.log("Error Msg", err)
+      res.json({error: "Could not save new exercise"});
     } else {
       const newExercise = data._id;
 
@@ -135,28 +95,46 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 
 app.get('/api/users/:_id/logs', async (req, res) => {
   const uId = req.params._id;
+  let logs;
+  const userLog = await Log.findOne({userId: uId})
+    .populate('userId')
+    .populate('log');
 
+  if (!userLog) return res.json({error: "Enter a valid user id"});
+  
   if (Object.keys(req.query).length === 0) {
-    const userLog = await Log.findOne({userId: uId})
-      .populate('userId')
-      .populate('log');
-
-    if (!userLog) return res.json({error: "Enter a valid user id"});
-    const logs = userLog.log.map(exercise => ({
+    logs = userLog.log.map(exercise => ({
       description: exercise.description,
       duration: exercise.duration,
       date: exercise.date
     }))
-    const data = {
-      _id: userLog.userId._id,
-      username: userLog.userId.username,
-      count: logs.length,
-      log: logs,
-    }
-    return res.json(data);
   } else {
-    // TODO
+    if (req.query.from && req.query.to) {
+      const dateFrom = new Date(req.query.from);
+      const dateTo = new Date(req.query.to);
+
+      if (dateFrom instanceof Date && isNaN(dateFrom) || 
+          dateTo instanceof Date && isNaN(dateTo)) return res.json({Error: "Invalid date parameters"});
+      
+      logs = userLog.log.filter((log) => {
+        const logDate = Date.parse(log.date)
+        return logDate >= dateFrom && logDate <= dateTo
+      })
+    }
+
+    if (req.query.limit) {
+      const limit = parseInt(req.query.limit);
+      if (isNaN(limit)) return res.json({Error: "Invalid limit parameters"});
+      logs = (logs) ? logs.slice(0, limit) : userLog.log.slice(0, limit);
+    }
   }
+  const data = {
+    _id: userLog.userId._id,
+    username: userLog.userId.username,
+    count: logs.length,
+    log: logs,
+  }
+  return res.json(data);
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
